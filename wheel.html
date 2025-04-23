@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Het rad van Café Lokal</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            padding: 2em;
+            background: #f4f4f4;
+        }
+
+        #wheelContainer {
+            position: relative;
+            width: 500px;
+            height: 500px;
+            margin: 0 auto;
+        }
+
+        #wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            /* Wordt geroteerd met CSS */
+        }
+
+        #pointer {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 20px solid transparent;
+            border-right: 20px solid transparent;
+            border-bottom: 30px solid crimson;
+        }
+
+        #spinButton {
+            margin-top: 1.5em;
+            padding: 0.8em 2em;
+            font-size: 1.2em;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        #spinButton:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+        }
+
+        /* Overlay voor winnaar + vuurwerk */
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: #fff;
+            z-index: 1000;
+        }
+
+        #overlay h2 {
+            font-size: 4em;
+            margin: 0.2em;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Het rad van Café Lokal</h1>
+
+    <div id="wheelContainer">
+        <div id="pointer"></div>
+        <canvas id="wheel" width="500" height="500"></canvas>
+    </div>
+
+    <button id="spinButton">Draaien!</button>
+
+    <!-- Overlay voor winnaar -->
+    <div id="overlay">
+        <h2 id="winnerText"></h2>
+        <!-- vuurwerk via confetti -->
+    </div>
+
+    <!-- Confetti library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <script>
+        const segments = [
+            "bock", "allumeuse la flamme", "chimay bruin", "st. bernardus abt 12",
+            "goude carolus wiskey infused", "gulden draak", "mystery beer", "dubble palm",
+            "orval", "sportzot", "victoria", "malleur", "secondje", "stabilise",
+            "brugse zot", "omer", "cornet smoked", "cornet oaked", "papagaie",
+            "kwak rouge", "lupulus fructus", "hoegaarde rose", "lindemans",
+            "liefmans", "cherry chouffe", "kasteel rouge", "kwak amber", "quintin",
+            "grimbergen blond", "chouffe", "barbar", "vedett", "duvel", "duvel 666",
+            "water", "bruiswater", "carlsberg 0,0", "paix dieux", "westmalle",
+            "goude carolus tripple", "st. bernardus tripple", "brugge tripple",
+            "triple carmeliet", "rochefort tripple", "lupulus triple",
+            "cornet oaked gold", "chimay blond", "nieuwe chouffe blauw",
+            "leffe 9 rituel", "tietje", "delirum", "filou", "slaapmutske",
+            "duvel imperial"
+        ];
+
+        const wheel = document.getElementById('wheel');
+        const ctx = wheel.getContext('2d');
+        const segmentAngle = 2 * Math.PI / segments.length;
+
+        function drawWheel() {
+            const R = wheel.width / 2;
+            ctx.clearRect(0, 0, wheel.width, wheel.height);
+            for (let i = 0; i < segments.length; i++) {
+                const start = i * segmentAngle;
+                const end = start + segmentAngle;
+                // witte segmenten
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                ctx.moveTo(R, R);
+                ctx.arc(R, R, R, start, end);
+                ctx.fill();
+                ctx.strokeStyle = '#000';
+                ctx.stroke();
+
+                // tekst label
+                ctx.save();
+                ctx.translate(R, R);
+                ctx.rotate(start + segmentAngle / 2);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#000';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.fillText(segments[i], R - 10, 5);
+                ctx.restore();
+            }
+        }
+        drawWheel();
+
+        const spinBtn = document.getElementById('spinButton');
+        const overlay = document.getElementById('overlay');
+        const winnerText = document.getElementById('winnerText');
+
+        function showWinner(text) {
+            winnerText.textContent = text;
+            overlay.style.display = 'flex';
+            // vuurwerk
+            confetti({ particleCount: 200, spread: 160 });
+            // meerdere bursts
+            setTimeout(() => confetti({ particleCount: 150, spread: 120 }), 500);
+            setTimeout(() => confetti({ particleCount: 100, spread: 100 }), 1000);
+            // na 5s verbergen
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 5000);
+        }
+
+        spinBtn.addEventListener('click', () => {
+            spinBtn.disabled = true;
+            const spinDeg = Math.floor(Math.random() * 3600) + 360;
+            wheel.style.transition = 'transform 5s cubic-bezier(.33,1,.68,1)';
+            wheel.style.transform = `rotate(${spinDeg}deg)`;
+
+            wheel.addEventListener('transitionend', () => {
+                const finalDeg = spinDeg % 360;
+                const idx = Math.floor((360 - finalDeg) / (360 / segments.length)) % segments.length;
+                showWinner(segments[idx]);
+                // reset rad
+                wheel.style.transition = 'none';
+                wheel.style.transform = 'rotate(0deg)';
+                drawWheel();
+                spinBtn.disabled = false;
+            }, { once: true });
+        });
+    </script>
+
+</body>
+
+</html>
