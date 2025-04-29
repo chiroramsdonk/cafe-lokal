@@ -1,311 +1,334 @@
 <!DOCTYPE html>
 <html lang="nl">
-
 <head>
-    <meta charset="UTF-8" />
-    <title>Rad van Fortuin met Stilstaande Rode Pijl</title>
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background: linear-gradient(to bottom, #1e3c72, #2a5298);
-            color: #fff;
-            font-family: sans-serif;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rad van Fortuin (Mobiel)</title>
+  <style>
+    /* Body en achtergrond */
+    body {
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      background: linear-gradient(to bottom, #1e3c72, #2a5298);
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
 
-        /* Wrapper houdt canvas en pijl op hun plek */
-        #wheelWrapper {
-            position: relative;
-            width: 500px;
-            height: 500px;
-            margin: 40px auto;
-        }
+    /* Wrapper voor rad + pijl, vierkant en responsief */
+    #wheelWrapper {
+      position: relative;
+      width: 90vw;              /* 90% van viewport-breedte */
+      height: 90vw;             /* vierkant */
+      max-width: 500px;         /* niet groter dan desktop-versie */
+      max-height: 500px;
+      margin-top: 20px;
+    }
 
-        /* Canvas draait, pijl niet */
-        #wheelCanvas {
-            width: 100%;
-            height: 100%;
-            transform-origin: 50% 50%;
-        }
+    /* Canvas vult de wrapper */
+    #wheelCanvas {
+      width: 100%;
+      height: 100%;
+      transform-origin: 50% 50%;
+      display: block;
+    }
 
-        /* Rode pijl, stilstaand boven het wiel */
-        #pointer {
-            position: absolute;
-            top: -50px;
-            /* net boven het wiel */
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 25px solid transparent;
-            border-right: 25px solid transparent;
-            border-bottom: 50px solid #ff4444;
-            /* rood */
-            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
-            z-index: 10;
-        }
+    /* Rode pijl, stilstaand boven het wiel */
+    #pointer {
+      position: absolute;
+      top: -8vw;                /* relatief geplaatst boven het wiel */
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 5vw solid transparent;
+      border-right: 5vw solid transparent;
+      border-bottom: 10vw solid #ff4444;
+      z-index: 10;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    }
 
-        /* “Draai” knop */
-        #spinButton {
-            display: block;
-            margin: 20px auto;
-            padding: 10px 20px;
-            font-size: 1em;
-            cursor: pointer;
-        }
+    /* Knoppen */
+    button {
+      margin: 16px 0;
+      padding: 12px 24px;
+      font-size: 1.2rem;
+      border: none;
+      border-radius: 6px;
+      background: #ff4444;
+      color: #fff;
+      cursor: pointer;
+      width: 80vw;
+      max-width: 300px;
+    }
+    button:disabled {
+      background: #a04444;
+      cursor: default;
+    }
 
-        /* Overlay winnaar + retry */
-        #winnerOverlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0, 0, 0, 0.6);
-            z-index: 9999;
-            opacity: 0;
-            transition: opacity 0.5s ease;
-            pointer-events: none;
-        }
+    /* Overlay winnaar + retry */
+    #winnerOverlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,0.6);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    #winnerOverlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #winnerText {
+      font-size: 2.5rem;
+      text-align: center;
+      padding: 16px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      max-width: 90%;
+      word-wrap: break-word;
+    }
+    #retryButton {
+      display: none;
+      background: #44cc44;
+    }
 
-        #winnerOverlay.show {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        #winnerText {
-            font-size: 4em;
-            text-align: center;
-            padding: 20px 40px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-
-        #retryButton {
-            padding: 10px 20px;
-            font-size: 1.2em;
-            display: none;
-            cursor: pointer;
-        }
-
-        /* Fireworks canvas */
-        #fwCanvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 9998;
-            pointer-events: none;
-        }
-    </style>
+    /* Fireworks canvas */
+    #fwCanvas {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 5;
+    }
+  </style>
 </head>
-
 <body>
 
-    <!-- Wrapper met canvas en pijl -->
-    <div id="wheelWrapper">
-        <canvas id="wheelCanvas" width="500" height="500"></canvas>
-        <div id="pointer"></div>
-    </div>
+  <div id="wheelWrapper">
+    <canvas id="wheelCanvas"></canvas>
+    <div id="pointer"></div>
+  </div>
 
-    <button id="spinButton">Draai het wiel!</button>
+  <button id="spinButton">Draai het wiel!</button>
 
-    <!-- Overlay met winnaar en retry-knop -->
-    <div id="winnerOverlay">
-        <div id="winnerText"></div>
-        <button id="retryButton">Opnieuw draaien</button>
-    </div>
+  <div id="winnerOverlay">
+    <div id="winnerText"></div>
+    <button id="retryButton">Opnieuw draaien</button>
+  </div>
 
-    <canvas id="fwCanvas"></canvas>
+  <canvas id="fwCanvas"></canvas>
 
-    <script>
-        const labels = [
-            "bock", "chimay bruin", "st. bernardus abt 12",
-            "goude carolus wiskey infused", "gulden draak", "mystery beer",
-            "orval", "sportzot", "victoria", "secondje", "stabilise",
-            "brugse zot", "omer", "cornet oaked", "papegaei",
-            "kwak rouge", "lupulus fructus", "hoegaarde rose", "lindemans",
-            "liefmans", "kasteel rouge", "kwak amber", "quintin",
-            "grimbergen blond", "chouffe", "barbar", "vedett", "duvel", "duvel 666",
-            "water", "carlsberg 0,0", "paix dieux", "westmalle tripel",
-            "goude carolus tripel", "st. bernardus tripel", "brugge tripel",
-            "triple karmeliet", "lupulus tripel", "cornet oaked gold",
-            "leffe 9 rituel", "tietje", "delirum", "filou", "slaapmutske",
-            "duvel imperial"
-        ];
-        const segmentCount = labels.length;
-        const segmentAngle = 360 / segmentCount;
+  <script>
+    // Labels-array
+    const labels = [
+      "bock","chimay bruin","st. bernardus abt 12",
+      "goude carolus wiskey infused","gulden draak","mystery beer",
+      "orval","sportzot","victoria","secondje","stabilise",
+      "brugse zot","omer","cornet oaked","papegaei",
+      "kwak rouge","lupulus fructus","hoegaarde rose","lindemans",
+      "liefmans","kasteel rouge","kwak amber","quintin",
+      "grimbergen blond","chouffe","barbar","vedett","duvel","duvel 666",
+      "water","carlsberg 0,0","paix dieux","westmalle tripel",
+      "goude carolus tripel","st. bernardus tripel","brugge tripel",
+      "triple karmeliet","lupulus tripel","cornet oaked gold",
+      "leffe 9 rituel","tietje","delirum","filou","slaapmutske",
+      "duvel imperial"
+    ];
+    const segmentCount = labels.length;
+    const segmentAngle = 360 / segmentCount;
 
-        // Elementen
-        const wheelCanvas = document.getElementById('wheelCanvas');
-        const ctx = wheelCanvas.getContext('2d');
-        const spinButton = document.getElementById('spinButton');
-        const winnerOverlay = document.getElementById('winnerOverlay');
-        const winnerText = document.getElementById('winnerText');
-        const retryButton = document.getElementById('retryButton');
+    // DOM-elementen
+    const wheelWrapper = document.getElementById('wheelWrapper');
+    const wheelCanvas  = document.getElementById('wheelCanvas');
+    const ctx          = wheelCanvas.getContext('2d');
+    const spinButton   = document.getElementById('spinButton');
+    const winnerOverlay= document.getElementById('winnerOverlay');
+    const winnerText   = document.getElementById('winnerText');
+    const retryButton  = document.getElementById('retryButton');
 
-        // Fireworks setup
-        const fwCanvas = document.getElementById('fwCanvas');
-        const fctx = fwCanvas.getContext('2d');
-        let fwW, fwH, fireworks = [], particles = [], launchInterval, animFrame;
-        function resizeFW() {
-            fwW = fwCanvas.width = window.innerWidth;
-            fwH = fwCanvas.height = window.innerHeight;
+    // Fireworks canvas setup
+    const fwCanvas = document.getElementById('fwCanvas');
+    const fctx     = fwCanvas.getContext('2d');
+    let fwW, fwH, fireworks = [], particles = [], launchInterval, animFrame;
+
+    function resizeCanvases() {
+      // Wheel canvas op wrapper-grootte zetten
+      const rect = wheelWrapper.getBoundingClientRect();
+      wheelCanvas.width  = rect.width;
+      wheelCanvas.height = rect.height;
+      drawWheel();
+
+      // Fireworks canvas full-screen
+      fwW = fwCanvas.width  = window.innerWidth;
+      fwH = fwCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvases);
+    window.addEventListener('orientationchange', resizeCanvases);
+    resizeCanvases();
+
+    // Firework classes
+    class Firework {
+      constructor(){
+        this.x = Math.random()*fwW; this.y = fwH;
+        this.targetY = Math.random()*fwH*0.5;
+        this.speed = 3+Math.random()*2;
+        this.angle = -Math.PI/2 + (Math.random()*0.4 - 0.2);
+        this.boomed = false;
+      }
+      update(){
+        const vx = Math.cos(this.angle)*this.speed;
+        const vy = Math.sin(this.angle)*this.speed;
+        this.x+=vx; this.y+=vy;
+        if(this.y<=this.targetY && !this.boomed){
+          this.explode(); this.boomed=true;
         }
-        window.addEventListener('resize', resizeFW);
-        resizeFW();
+      }
+      draw(){
+        fctx.beginPath();
+        fctx.arc(this.x,this.y,2,0,2*Math.PI);
+        fctx.fillStyle = 'rgba(255,200,80,0.9)';
+        fctx.fill();
+      }
+      explode(){
+        const count = 30 + Math.random()*30;
+        for(let i=0;i<count;i++) particles.push(new Particle(this.x,this.y));
+      }
+    }
+    class Particle {
+      constructor(x,y){
+        this.x=x; this.y=y;
+        const speed = Math.random()*4+2;
+        const angle = Math.random()*2*Math.PI;
+        this.vx = Math.cos(angle)*speed;
+        this.vy = Math.sin(angle)*speed;
+        this.alpha = 1;
+        this.decay = 0.015 + Math.random()*0.02;
+        this.size = 2 + Math.random()*2;
+      }
+      update(){
+        this.vy += 0.05;
+        this.x += this.vx; this.y += this.vy;
+        this.alpha -= this.decay;
+      }
+      draw(){
+        if(this.alpha <= 0) return;
+        fctx.globalAlpha = this.alpha;
+        fctx.beginPath();
+        fctx.arc(this.x,this.y,this.size,0,2*Math.PI);
+        fctx.fillStyle = 'rgba(255,200,80,0.9)';
+        fctx.fill();
+        fctx.globalAlpha = 1;
+      }
+    }
+    function launchFirework(){ fireworks.push(new Firework()); }
+    function animateFW(){
+      fctx.clearRect(0,0,fwW,fwH);
+      fireworks.forEach((fw,i)=>{
+        fw.update(); fw.draw();
+        if(fw.boomed) fireworks.splice(i,1);
+      });
+      particles.forEach((p,i)=>{
+        p.update();
+        if(p.alpha <= 0) particles.splice(i,1);
+        else p.draw();
+      });
+      animFrame = requestAnimationFrame(animateFW);
+    }
+    function startFireworks(){
+      clearInterval(launchInterval);
+      launchInterval = setInterval(launchFirework,400);
+      animateFW();
+      setTimeout(stopFireworks,5000);
+    }
+    function stopFireworks(){
+      clearInterval(launchInterval);
+      cancelAnimationFrame(animFrame);
+      fireworks = []; particles = [];
+      fctx.clearRect(0,0,fwW,fwH);
+    }
 
-        class Firework {
-            constructor() {
-                this.x = Math.random() * fwW; this.y = fwH;
-                this.targetY = Math.random() * fwH * 0.5;
-                this.speed = 3 + Math.random() * 2;
-                this.angle = -Math.PI / 2 + (Math.random() * 0.4 - 0.2);
-                this.boomed = false;
-            }
-            update() {
-                const vx = Math.cos(this.angle) * this.speed;
-                const vy = Math.sin(this.angle) * this.speed;
-                this.x += vx; this.y += vy;
-                if (this.y <= this.targetY && !this.boomed) { this.boom(); this.boomed = true; }
-            }
-            draw() {
-                fctx.beginPath();
-                fctx.arc(this.x, this.y, 2, 0, 2 * Math.PI);
-                fctx.fill();
-            }
-            boom() {
-                const cnt = 30 + Math.random() * 30;
-                for (let i = 0; i < cnt; i++) particles.push(new Particle(this.x, this.y));
-            }
-        }
-        class Particle {
-            constructor(x, y) {
-                this.x = x; this.y = y;
-                const sp = Math.random() * 4 + 2;
-                const ang = Math.random() * 2 * Math.PI;
-                this.vx = Math.cos(ang) * sp; this.vy = Math.sin(ang) * sp;
-                this.alpha = 1; this.decay = 0.015 + Math.random() * 0.02;
-                this.size = 2 + Math.random() * 2;
-            }
-            update() {
-                this.vy += 0.05;
-                this.x += this.vx; this.y += this.vy;
-                this.alpha -= this.decay;
-            }
-            draw() {
-                if (this.alpha <= 0) return;
-                fctx.globalAlpha = this.alpha;
-                fctx.beginPath();
-                fctx.arc(this.x, this.y, this.size, 0, 2 * Math.PI);
-                fctx.fill();
-                fctx.globalAlpha = 1;
-            }
-        }
-        function launchFirework() { fireworks.push(new Firework()); }
-        function animateFW() {
-            fctx.clearRect(0, 0, fwW, fwH);
-            fctx.fillStyle = 'rgba(255,200,80,0.8)';
-            fireworks.forEach((fw, i) => {
-                fw.update(); fw.draw();
-                if (fw.boomed) fireworks.splice(i, 1);
-            });
-            particles.forEach((p, i) => {
-                p.update();
-                if (p.alpha <= 0) particles.splice(i, 1);
-                else p.draw();
-            });
-            animFrame = requestAnimationFrame(animateFW);
-        }
-        function startFireworks() {
-            if (launchInterval) clearInterval(launchInterval);
-            launchInterval = setInterval(launchFirework, 400);
-            animateFW();
-            setTimeout(stopFireworks, 5000);
-        }
-        function stopFireworks() {
-            clearInterval(launchInterval);
-            cancelAnimationFrame(animFrame);
-            fireworks = []; particles = [];
-            fctx.clearRect(0, 0, fwW, fwH);
-        }
+    // Rad tekenen
+    function drawWheel(){
+      const cx = wheelCanvas.width/2;
+      const cy = wheelCanvas.height/2;
+      const radius = Math.min(cx,cy) - 10;
+      ctx.clearRect(0,0,wheelCanvas.width,wheelCanvas.height);
+      for(let i=0; i<segmentCount; i++){
+        const startDeg = -90 + i*segmentAngle;
+        const endDeg   = startDeg + segmentAngle;
+        const sRad = startDeg * Math.PI/180;
+        const eRad = endDeg   * Math.PI/180;
+        ctx.fillStyle = (i%2===0) ? '#4a90e2' : '#357ab8';
+        ctx.beginPath();
+        ctx.moveTo(cx,cy);
+        ctx.arc(cx,cy,radius,sRad,eRad);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        // label
+        ctx.save();
+        ctx.translate(cx,cy);
+        ctx.rotate((sRad+eRad)/2);
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#fff';
+        ctx.font = `${Math.round(radius*0.08)}px sans-serif`;
+        ctx.fillText(labels[i], radius - 10, 0);
+        ctx.restore();
+      }
+    }
 
-        // Wiel tekenen
-        function drawWheel() {
-            const cx = wheelCanvas.width / 2;
-            const cy = wheelCanvas.height / 2;
-            const r = cx - 10;
-            ctx.clearRect(0, 0, wheelCanvas.width, wheelCanvas.height);
-            for (let i = 0; i < segmentCount; i++) {
-                const startDeg = -90 + i * segmentAngle;
-                const endDeg = startDeg + segmentAngle;
-                const sRad = startDeg * Math.PI / 180, eRad = endDeg * Math.PI / 180;
-                ctx.fillStyle = (i % 2 === 0) ? '#4a90e2' : '#357ab8';
-                ctx.beginPath();
-                ctx.moveTo(cx, cy);
-                ctx.arc(cx, cy, r, sRad, eRad);
-                ctx.closePath();
-                ctx.fill();
-                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-                ctx.save();
-                ctx.translate(cx, cy);
-                ctx.rotate((sRad + eRad) / 2);
-                ctx.textAlign = 'right';
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 14px sans-serif';
-                ctx.fillText(labels[i], r - 10, 0);
-                ctx.restore();
-            }
-        }
-        window.onload = drawWheel;
+    // Spin-knop handler
+    let spinning = false;
+    spinButton.addEventListener('click', () => {
+      if(spinning) return;
+      spinning = true;
+      spinButton.disabled = true;
+      retryButton.style.display = 'none';
+      winnerOverlay.classList.remove('show');
 
-        // Spin + winnaar + retry
-        let isSpinning = false;
-        spinButton.addEventListener('click', () => {
-            if (isSpinning) return;
-            isSpinning = true;
-            spinButton.disabled = true;
-            winnerOverlay.classList.remove('show');
-            retryButton.style.display = 'none';
+      const spinAngle = Math.floor(Math.random()*360 + 3600);
+      wheelCanvas.style.transition = 'transform 5s cubic-bezier(0.33,1,0.68,1)';
+      wheelCanvas.style.transform  = `rotate(${spinAngle}deg)`;
 
-            const spinAngle = Math.floor(Math.random() * 360 + 3600);
-            // draai nu het canvas, niet container
-            wheelCanvas.style.transition = 'transform 5s cubic-bezier(0.33,1,0.68,1)';
-            wheelCanvas.style.transform = `rotate(${spinAngle}deg)`;
+      wheelCanvas.addEventListener('transitionend', function handler(){
+        wheelCanvas.removeEventListener('transitionend', handler);
+        const normalized = spinAngle % 360;
+        const idx = Math.floor(((360 - normalized)%360)/segmentAngle);
+        const win = labels[idx];
 
-            wheelCanvas.addEventListener('transitionend', function handler() {
-                wheelCanvas.removeEventListener('transitionend', handler);
-                const normalized = spinAngle % 360;
-                const idx = Math.floor(((360 - normalized) % 360) / segmentAngle);
-                const win = labels[idx];
+        // Toon winnaar
+        winnerText.textContent = win;
+        retryButton.style.display = 'block';
+        winnerOverlay.classList.add('show');
+        startFireworks();
 
-                // Overlay + tekst + retry
-                winnerText.textContent = win.toUpperCase();
-                retryButton.style.display = 'inline-block';
-                winnerOverlay.classList.add('show');
-                startFireworks();
+        // Reset canvasrotatie
+        wheelCanvas.style.transition = 'none';
+        wheelCanvas.style.transform  = `rotate(${normalized}deg)`;
 
-                // reset canvas naar eindrotatie zonder animatie
-                wheelCanvas.style.transition = 'none';
-                wheelCanvas.style.transform = `rotate(${normalized}deg)`;
+        spinning = false;
+        spinButton.disabled = false;
+      }, { once: true });
+    });
 
-                isSpinning = false;
-                spinButton.disabled = false;
-            }, { once: true });
-        });
-
-        retryButton.addEventListener('click', () => {
-            winnerOverlay.classList.remove('show');
-            retryButton.style.display = 'none';
-            spinButton.click();
-        });
-    </script>
+    // Retry
+    retryButton.addEventListener('click', () => {
+      winnerOverlay.classList.remove('show');
+      retryButton.style.display = 'none';
+      spinButton.click();
+    });
+  </script>
 </body>
-
 </html>
